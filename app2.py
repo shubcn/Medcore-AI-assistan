@@ -3,7 +3,30 @@ import wave
 from openai import OpenAI
 import os
 from dotenv import load_dotenv
+import pygame
 load_dotenv()
+
+def play_mp3(file_path):
+    # Initialize pygame
+    pygame.init()
+
+    try:
+        # Load the MP3 file
+        pygame.mixer.music.load(file_path)
+        
+        # Play the MP3 file
+        pygame.mixer.music.play()
+
+        # Wait until the MP3 finishes playing
+        while pygame.mixer.music.get_busy():
+            pygame.time.Clock().tick(10)
+        
+    except pygame.error:
+        print("Error: Unable to load or play the MP3 file.")
+    
+    finally:
+        # Quit pygame
+        pygame.quit()
 
 # Set recording parameters
 CHUNK = 1024
@@ -52,7 +75,7 @@ print(f"Audio saved to {output_file}")
 
 KEY = os.environ.get("API_KEY")
 
-
+#STT--------------------------------------------
 client = OpenAI(api_key=KEY)
 audio_file = open(f"{output_file}", "rb")
 transcription = client.audio.transcriptions.create(
@@ -60,4 +83,34 @@ transcription = client.audio.transcriptions.create(
   file=audio_file,
   response_format="text"
 )
-print(transcription)
+print("User: ",transcription)
+
+#LLM-----------------------------------------------------------
+
+completion = client.chat.completions.create(
+    model='gpt-4-0125-preview',
+    messages=[
+        {"role": "system", "content": "Act like chatbot"},
+        {"role": "user", "content": f'{transcription}'}
+    ]
+    )
+
+result = completion.choices[0].message.content
+print("Medcore:",result)
+
+#TTS
+speech_file_path =  "ai_reply.mp3"
+response = client.audio.speech.create(
+  model="tts-1",
+  voice="nova",
+  input=result
+  )
+
+response.stream_to_file(speech_file_path)
+
+play_mp3(speech_file_path)
+
+
+
+
+
